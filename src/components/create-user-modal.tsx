@@ -6,23 +6,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { X, Plus } from 'lucide-react'
-import { User, ProfileFormData } from '@/types'
+import { X, Plus, UserPlus } from 'lucide-react'
+import { ProfileFormData } from '@/types'
 
-interface ProfileFormModalProps {
+interface CreateUserModalProps {
   isOpen: boolean
   onClose: () => void
-  user: User
-  onUpdate: (updatedProfile: Partial<User>) => void
+  onCreate: (userData: ProfileFormData) => Promise<void>
 }
 
-export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFormModalProps) {
+export function CreateUserModal({ isOpen, onClose, onCreate }: CreateUserModalProps) {
   const [formData, setFormData] = useState<ProfileFormData>({
-    name: user.name,
-    email: user.email,
-    location: user.location,
-    expectedCTC: user.expectedCTC,
-    skills: [...user.skills]
+    name: '',
+    email: '',
+    location: '',
+    expectedCTC: '',
+    skills: []
   })
   const [newSkill, setNewSkill] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,13 +31,18 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
     setIsSubmitting(true)
 
     try {
-      // In real app: const response = await fetch('/api/profile', { method: 'PUT', body: JSON.stringify(formData) })
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      onUpdate(formData)
+      await onCreate(formData)
       onClose()
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        location: '',
+        expectedCTC: '',
+        skills: []
+      })
     } catch (error) {
-      console.error('Failed to update profile:', error)
+      console.error('Failed to create user:', error)
     } finally {
       setIsSubmitting(false)
     }
@@ -68,13 +72,29 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
     }
   }
 
+  const handleClose = () => {
+    onClose()
+    // Reset form when closing
+    setFormData({
+      name: '',
+      email: '',
+      location: '',
+      expectedCTC: '',
+      skills: []
+    })
+    setNewSkill('')
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Create New User
+          </DialogTitle>
           <DialogDescription>
-            Update your professional information and skills.
+            Add a new user profile to the system. Fill in the required information below.
           </DialogDescription>
         </DialogHeader>
 
@@ -82,27 +102,27 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="name" className="text-sm font-medium">
-                Full Name
+                Full Name *
               </label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter your full name"
+                placeholder="Enter full name"
                 required
               />
             </div>
 
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
-                Email
+                Email *
               </label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter your email"
+                placeholder="Enter email address"
                 required
               />
             </div>
@@ -111,7 +131,7 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="location" className="text-sm font-medium">
-                Location
+                Location *
               </label>
               <Input
                 id="location"
@@ -124,7 +144,7 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
 
             <div className="space-y-2">
               <label htmlFor="expectedCTC" className="text-sm font-medium">
-                Expected CTC
+                Expected CTC *
               </label>
               <Input
                 id="expectedCTC"
@@ -173,11 +193,11 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            <Button type="submit" disabled={isSubmitting || !formData.name || !formData.email || !formData.location || !formData.expectedCTC}>
+              {isSubmitting ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
         </form>

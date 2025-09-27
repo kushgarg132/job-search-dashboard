@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,14 +14,19 @@ import {
   FileText, 
   Upload,
   Edit,
-  Calendar
+  Calendar,
+  UserPlus,
+  Users,
+  ChevronDown
 } from 'lucide-react'
 import { ProfileFormModal } from '@/components/profile-form-modal'
-import { User as UserType, ProfileFormData } from '@/types'
+import { CreateUserModal } from '@/components/create-user-modal'
+import { User as UserType } from '@/types'
 import { formatDate } from '@/lib/utils'
 
-// Mock user data - in real app, this would come from API
-const mockUser: UserType = {
+// Mock users data - in real app, this would come from API
+const mockUsers: UserType[] = [
+  {
   _id: '1',
   name: 'John Doe',
   email: 'john.doe@example.com',
@@ -30,74 +35,130 @@ const mockUser: UserType = {
   skills: ['React', 'TypeScript', 'Node.js', 'Python', 'AWS'],
   resumeUrl: 'https://example.com/resume.pdf',
   createdAt: new Date('2024-01-15')
-}
+  },
+  {
+    _id: '2',
+    name: 'Jane Smith',
+    email: 'jane.smith@example.com',
+    location: 'New York, NY',
+    expectedCTC: '$100,000 - $130,000',
+    skills: ['Vue.js', 'JavaScript', 'CSS', 'HTML', 'Git'],
+    resumeUrl: 'https://example.com/jane-resume.pdf',
+    createdAt: new Date('2024-01-10')
+  }
+]
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserType | null>(null)
+  const [users, setUsers] = useState<UserType[]>([])
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null)
+  
   const [isLoading, setIsLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  
+  const [showUserSelector, setShowUserSelector] = useState(false)
+  const userSelectorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Simulate API call
-    const fetchUser = async () => {
+    const fetchUsers = async () => {
       setIsLoading(true)
       try {
-        // In real app: const response = await fetch('/api/profile')
-        // const data = await response.json()
-        await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate delay
-        setUser(mockUser)
+        const response = await fetch('/api/users')
+        const data = await response.json()
+        
+        if (data.success) {
+          setUsers(data.data)
+          if (data.data.length > 0) {
+            setCurrentUser(data.data[0]) // Set first user as default
+          }
+        } else {
+          // Fallback to mock data if API fails
+          setUsers(mockUsers)
+          if (mockUsers.length > 0) {
+            setCurrentUser(mockUsers[0])
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch profile:', error)
+        console.error('Failed to fetch users:', error)
+        // Fallback to mock data
+        setUsers(mockUsers)
+        if (mockUsers.length > 0) {
+          setCurrentUser(mockUsers[0])
+        }
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchUser()
+    fetchUsers()
   }, [])
 
-  const handleProfileUpdate = async (updatedProfile: Partial<UserType>) => {
-    if (user) {
-      try {
-        const response = await fetch('/api/profile', { 
-          method: 'PUT', 
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedProfile) 
-        })
-        const data = await response.json()
-        
-        if (data.success) {
-          setUser(data.data)
-        } else {
-          console.error('Failed to update profile:', data.error)
-        }
-      } catch (error) {
-        console.error('Failed to update profile:', error)
+  // Close user selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userSelectorRef.current && !userSelectorRef.current.contains(event.target as Node)) {
+        setShowUserSelector(false)
       }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const handleProfileUpdate = (updatedProfile: Partial<UserType>) => {
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...updatedProfile }
+      setCurrentUser(updatedUser)
+      setUsers(prev => prev.map(u => u._id === currentUser._id ? updatedUser : u))
     }
   }
 
-  const handleProfileCreate = async (newProfile: ProfileFormData) => {
+  const handleUserCreate = async (userData: any) => {
     try {
-      const response = await fetch('/api/profile', { 
-        method: 'POST', 
+      const response = await fetch('/api/users', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newProfile) 
+        body: JSON.stringify(userData)
       })
+      
       const data = await response.json()
       
       if (data.success) {
-        setUser(data.data)
+        setUsers(prev => [...prev, data.data])
+        setCurrentUser(data.data)
       } else {
-        console.error('Failed to create profile:', data.error)
+        console.error('Failed to create user:', data.error)
+        // Fallback to local creation for demo
+        const newUser: UserType = {
+          _id: Date.now().toString(),
+          ...userData,
+          resumeUrl: '',
+          createdAt: new Date()
+        }
+        setUsers(prev => [...prev, newUser])
+        setCurrentUser(newUser)
       }
     } catch (error) {
-      console.error('Failed to create profile:', error)
+      console.error('Failed to create user:', error)
+      // Fallback to local creation for demo
+      const newUser: UserType = {
+        _id: Date.now().toString(),
+        ...userData,
+        resumeUrl: '',
+        createdAt: new Date()
+      }
+      setUsers(prev => [...prev, newUser])
+      setCurrentUser(newUser)
     }
+  }
+
+  const handleUserSelect = (selectedUser: UserType) => {
+    setCurrentUser(selectedUser)
+    setShowUserSelector(false)
   }
 
   const handleResumeUpload = async (file: File) => {
@@ -108,12 +169,14 @@ export default function ProfilePage() {
       // Simulate upload
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      if (user) {
-        setUser({
-          ...user,
+      if (currentUser) {
+        const updatedUser = {
+          ...currentUser,
           resumeUrl: `https://example.com/resumes/${file.name}`,
           createdAt: new Date()
-        })
+        }
+        setCurrentUser(updatedUser)
+        setUsers(prev => prev.map(u => u._id === currentUser._id ? updatedUser : u))
       }
     } catch (error) {
       console.error('Failed to upload resume:', error)
@@ -129,32 +192,22 @@ export default function ProfilePage() {
     )
   }
 
-  if (!user) {
+  if (!currentUser) {
     return (
-      <div className="space-y-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center py-12"
-        >
-          <User className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4">Create Your Profile</h2>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Get started by creating your professional profile. This will help us match you with the right job opportunities.
-          </p>
-          <Button onClick={() => setIsModalOpen(true)} size="lg">
-            <User className="mr-2 h-5 w-5" />
-            Create Profile
-          </Button>
-        </motion.div>
-
-        <ProfileFormModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          user={null}
-          onUpdate={handleProfileUpdate}
-          onCreate={handleProfileCreate}
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold mb-4">No Users Found</h2>
+        <p className="text-muted-foreground mb-6">
+          No user profiles available. Create a new user to get started.
+        </p>
+        <Button onClick={() => setIsCreateModalOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Create First User
+        </Button>
+        
+        <CreateUserModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreate={handleUserCreate}
         />
       </div>
     )
@@ -174,10 +227,68 @@ export default function ProfilePage() {
             Manage your professional information and resume
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+          <Button onClick={() => setIsEditModalOpen(true)}>
           <Edit className="mr-2 h-4 w-4" />
           Edit Profile
         </Button>
+        </div>
+      </motion.div>
+
+      {/* User Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+      >
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Current User</p>
+                  <p className="text-lg font-semibold">{currentUser.name}</p>
+                  <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                </div>
+              </div>
+              <div className="relative" ref={userSelectorRef}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUserSelector(!showUserSelector)}
+                  className="flex items-center gap-2"
+                >
+                  Switch User
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                
+                {showUserSelector && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-background border rounded-md shadow-lg z-10">
+                    <div className="p-2">
+                      <p className="text-sm font-medium text-muted-foreground mb-2 px-2">Select User</p>
+                      {users.map((user) => (
+                        <button
+                          key={user._id}
+                          onClick={() => handleUserSelect(user)}
+                          className={`w-full text-left p-2 rounded hover:bg-accent ${
+                            user._id === currentUser._id ? 'bg-accent' : ''
+                          }`}
+                        >
+                          <div className="font-medium">{user.name}</div>
+                          <div className="text-sm text-muted-foreground">{user.email}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -204,7 +315,7 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-muted-foreground">Name</label>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-lg">{user.name}</span>
+                    <span className="text-lg">{currentUser.name}</span>
                   </div>
                 </div>
                 
@@ -212,7 +323,7 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-muted-foreground">Email</label>
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-lg">{user.email}</span>
+                    <span className="text-lg">{currentUser.email}</span>
                   </div>
                 </div>
                 
@@ -220,7 +331,7 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-muted-foreground">Location</label>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-lg">{user.location}</span>
+                    <span className="text-lg">{currentUser.location}</span>
                   </div>
                 </div>
                 
@@ -228,7 +339,7 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-muted-foreground">Expected CTC</label>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-lg">{user.expectedCTC}</span>
+                    <span className="text-lg">{currentUser.expectedCTC}</span>
                   </div>
                 </div>
               </div>
@@ -236,7 +347,7 @@ export default function ProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Skills</label>
                 <div className="flex flex-wrap gap-2">
-                  {user.skills.map((skill, index) => (
+                  {currentUser.skills.map((skill, index) => (
                     <Badge key={index} variant="secondary">
                       <Code className="mr-1 h-3 w-3" />
                       {skill}
@@ -249,7 +360,7 @@ export default function ProfilePage() {
                 <label className="text-sm font-medium text-muted-foreground">Member Since</label>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>{formatDate(user.createdAt)}</span>
+                  <span>{formatDate(currentUser.createdAt)}</span>
                 </div>
               </div>
             </CardContent>
@@ -273,7 +384,7 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {user.resumeUrl ? (
+              {currentUser.resumeUrl ? (
                 <div className="space-y-3">
                   <div className="p-4 border rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2 mb-2">
@@ -281,10 +392,10 @@ export default function ProfilePage() {
                       <span className="font-medium">Current Resume</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {user.resumeUrl.split('/').pop()}
+                      {currentUser.resumeUrl.split('/').pop()}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Last updated: {formatDate(user.createdAt)}
+                      Last updated: {formatDate(currentUser.createdAt)}
                     </p>
                   </div>
                   
@@ -293,7 +404,7 @@ export default function ProfilePage() {
                       variant="outline" 
                       size="sm" 
                       className="flex-1"
-                      onClick={() => window.open(user.resumeUrl, '_blank')}
+                      onClick={() => window.open(currentUser.resumeUrl, '_blank')}
                     >
                       View Resume
                     </Button>
@@ -346,10 +457,16 @@ export default function ProfilePage() {
       </div>
 
       <ProfileFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        user={user}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={currentUser}
         onUpdate={handleProfileUpdate}
+      />
+
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreate={handleUserCreate}
       />
     </div>
   )

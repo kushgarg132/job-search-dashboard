@@ -34,26 +34,6 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    validateEnvironment()
-    
-    const body = await request.json()
-    const newUser = await UserService.create({
-      ...body,
-      resumeUrl: '' // Default empty resume URL for new users
-    })
-    
-    return NextResponse.json({ success: true, data: newUser })
-  } catch (error) {
-    console.error('Error creating profile:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to create profile' },
-      { status: 500 }
-    )
-  }
-}
-
 export async function PUT(request: NextRequest) {
   try {
     validateEnvironment()
