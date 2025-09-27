@@ -163,23 +163,33 @@ export default function ProfilePage() {
 
   const handleResumeUpload = async (file: File) => {
     try {
-      // In real app: const formData = new FormData(); formData.append('resume', file)
-      // const response = await fetch('/api/profile/resume', { method: 'POST', body: formData })
       console.log('Uploading resume:', file.name)
-      // Simulate upload
-      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      if (currentUser) {
-        const updatedUser = {
-          ...currentUser,
-          resumeUrl: `https://example.com/resumes/${file.name}`,
-          createdAt: new Date()
-        }
+      // Create FormData for file upload
+      const formData = new FormData()
+      formData.append('resume', file)
+      
+      // Upload resume via API (user ID is optional now)
+      const response = await fetch('/api/profile/resume', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        // Update user with file info
+        const updatedUser = data.data.user
         setCurrentUser(updatedUser)
-        setUsers(prev => prev.map(u => u._id === currentUser._id ? updatedUser : u))
+        setUsers(prev => prev.map(u => u._id === currentUser?._id ? updatedUser : u))
+        
+        console.log('Resume uploaded successfully:', data.data.fileInfo)
+      } else {
+        throw new Error(data.error || 'Failed to upload resume')
       }
     } catch (error) {
       console.error('Failed to upload resume:', error)
+      alert(`Failed to upload resume: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -233,9 +243,9 @@ export default function ProfilePage() {
             Add User
           </Button>
           <Button onClick={() => setIsEditModalOpen(true)}>
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Profile
-        </Button>
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Profile
+          </Button>
         </div>
       </motion.div>
 
@@ -390,13 +400,27 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="h-4 w-4 text-primary" />
                       <span className="font-medium">Current Resume</span>
+                      {currentUser.resumeDriveId ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Google Drive
+                        </Badge>
+                      ) : currentUser.resumeUrl && (
+                        <Badge variant="outline" className="text-xs">
+                          Local Storage
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {currentUser.resumeUrl.split('/').pop()}
+                      {currentUser.resumeOriginalName || currentUser.resumeUrl.split('/').pop()}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Last updated: {formatDate(currentUser.createdAt)}
+                      Last updated: {formatDate(currentUser.resumeUploadedAt || currentUser.createdAt)}
                     </p>
+                    {currentUser.resumeDriveId && (
+                      <p className="text-xs text-muted-foreground">
+                        Drive ID: {currentUser.resumeDriveId}
+                      </p>
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
@@ -426,6 +450,35 @@ export default function ProfilePage() {
                       <Upload className="mr-1 h-3 w-3" />
                       Replace
                     </Button>
+                    {currentUser.resumeDriveId && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to delete this resume?')) {
+                            try {
+                              const response = await fetch(`/api/profile/resume?fileId=${currentUser.resumeDriveId}`, {
+                                method: 'DELETE'
+                              })
+                              const data = await response.json()
+                              
+                              if (data.success) {
+                                setCurrentUser(data.data)
+                                setUsers(prev => prev.map(u => u._id === currentUser._id ? data.data : u))
+                              } else {
+                                throw new Error(data.error || 'Failed to delete resume')
+                              }
+                            } catch (error) {
+                              console.error('Failed to delete resume:', error)
+                              alert(`Failed to delete resume: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                            }
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (

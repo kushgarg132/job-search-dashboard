@@ -32,13 +32,25 @@ export function ProfileFormModal({ isOpen, onClose, user, onUpdate }: ProfileFor
     setIsSubmitting(true)
 
     try {
-      // In real app: const response = await fetch('/api/profile', { method: 'PUT', body: JSON.stringify(formData) })
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      })
       
-      onUpdate(formData)
-      onClose()
+      const data = await response.json()
+      
+      if (data.success) {
+        onUpdate(data.data)
+        onClose()
+      } else {
+        throw new Error(data.error || 'Failed to update profile')
+      }
     } catch (error) {
       console.error('Failed to update profile:', error)
+      alert(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }

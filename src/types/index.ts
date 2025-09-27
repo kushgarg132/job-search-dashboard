@@ -7,6 +7,11 @@ export interface User {
   expectedCTC: string;
   skills: string[];
   resumeUrl: string;
+  resumeDriveId?: string;
+  resumeDrivePath?: string;
+  resumeFileName?: string;
+  resumeOriginalName?: string;
+  resumeUploadedAt?: Date;
   createdAt: Date;
 }
 
