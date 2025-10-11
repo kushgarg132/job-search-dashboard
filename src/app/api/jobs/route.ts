@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { JobService } from '@/lib/database'
 import { validateEnvironment } from '@/lib/config'
+import { Job } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     const location = searchParams.get('location') || ''
     const salary = searchParams.get('salary') || ''
     
-    let jobs: any[] = []
+    let jobs: Job[] = []
     
     if (search) {
       jobs = await JobService.search(search, { role, location, salary })

@@ -229,7 +229,7 @@ export async function DELETE(request: NextRequest) {
       resumeDrivePath: '',
       resumeFileName: '',
       resumeOriginalName: '',
-      resumeUploadedAt: null
+      resumeUploadedAt: undefined
     })
 
     return NextResponse.json({

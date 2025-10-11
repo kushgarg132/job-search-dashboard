@@ -1,5 +1,6 @@
 import { JobService, UserService, ApplicationService } from './database'
 import { validateEnvironment } from './config'
+import { Job } from '@/types'
 
 const sampleJobs = [
   {
@@ -87,7 +88,7 @@ export async function seedDatabase() {
     
     // Seed jobs
     console.log('📝 Seeding jobs...')
-    const createdJobs = []
+    const createdJobs: Job[] = []
     for (const job of sampleJobs) {
       const createdJob = await JobService.create(job)
       createdJobs.push(createdJob)
